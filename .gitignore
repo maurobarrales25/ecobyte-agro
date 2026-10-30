@@ -1,0 +1,23 @@
+# OpenTofu / Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+tfplan
+*.tfplan
+crash.log
+secret*.tfvars
+
+# Secretos y claves
+.env
+*.pem
+*.key
+
+# Python
+__pycache__/
+.venv/
+*.pyc
+
+# Paquete de la Lambda generado
+*.zip
+
+.claude

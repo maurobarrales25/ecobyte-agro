@@ -1,3 +1,13 @@
+# Los correos no van en el repo: se cargan a mano una vez en SSM Parameter Store
+# (SecureString, lista JSON) y cualquier integrante los lee con su usuario IAM.
+data "aws_ssm_parameter" "budget_emails" {
+  name = "/ecobyte/budget-emails"
+}
+
+locals {
+  budget_emails = jsondecode(data.aws_ssm_parameter.budget_emails.value)
+}
+
 # Aviso por email cuando el gasto mensual de la cuenta se acerca al límite.
 # No frena nada: solo alerta. Ver docs/finops para el porqué de no usar budget actions.
 resource "aws_budgets_budget" "monthly" {
@@ -21,7 +31,7 @@ resource "aws_budgets_budget" "monthly" {
       threshold                  = notification.value
       threshold_type             = "PERCENTAGE"
       notification_type          = "ACTUAL"
-      subscriber_email_addresses = var.budget_emails
+      subscriber_email_addresses = local.budget_emails
     }
   }
 
@@ -31,6 +41,6 @@ resource "aws_budgets_budget" "monthly" {
     threshold                  = 100
     threshold_type             = "PERCENTAGE"
     notification_type          = "FORECASTED"
-    subscriber_email_addresses = var.budget_emails
+    subscriber_email_addresses = local.budget_emails
   }
 }
