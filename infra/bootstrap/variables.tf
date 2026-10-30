@@ -20,14 +20,14 @@ variable "budget_limit_usd" {
   }
 }
 
-variable "github_repository" {
-  description = "Repositorio de GitHub que puede asumir los roles OIDC, con formato dueño/repo"
+variable "github_sub_prefix" {
+  description = "Prefijo del claim sub de los tokens OIDC de GitHub para este repo, con los IDs numéricos de dueño y repo (se ve con: gh api repos/<dueño>/<repo>/actions/oidc/customization/sub)"
   type        = string
-  default     = "maurobarrales25/ecobyte-agro"
+  default     = "repo:maurobarrales25@131790697/ecobyte-agro@1436055208"
 
   validation {
-    condition     = can(regex("^[A-Za-z0-9-]+/[A-Za-z0-9._-]+$", var.github_repository))
-    error_message = "github_repository debe tener el formato dueño/repo."
+    condition     = can(regex("^repo:[A-Za-z0-9-]+@[0-9]+/[A-Za-z0-9._-]+@[0-9]+$", var.github_sub_prefix))
+    error_message = "github_sub_prefix debe tener el formato repo:dueño@ID/repo@ID."
   }
 }
 
