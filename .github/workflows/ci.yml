@@ -1,0 +1,59 @@
+name: ci
+on:
+  pull_request:
+    branches: [master]
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
+        with:
+          tofu_version: 1.12.6
+          tofu_wrapper: false
+
+      - name: Formato
+        run: tofu fmt -check -recursive -diff infra
+
+      # Sin backend: validate no necesita credenciales ni estado.
+      - name: Validar infra/bootstrap
+        working-directory: infra/bootstrap
+        run: |
+          tofu init -backend=false -input=false
+          tofu validate
+
+      - name: Validar infra/envs/dev
+        working-directory: infra/envs/dev
+        run: |
+          tofu init -backend=false -input=false
+          tofu validate
+
+      - uses: terraform-linters/setup-tflint@6ffdbaa3be476b3431f7275c26966ef32ff60337 # v6.3.2
+        with:
+          tflint_version: v0.65.0
+
+      # Solo falla por errores. Los módulos y infra/envs/dev son por ahora archivos vacíos y
+      # tflint avisa (warning) que les falta required_version; se vuelve a exigir cualquier
+      # severidad cuando tengan contenido.
+      - name: tflint
+        run: tflint --recursive --minimum-failure-severity=error
+
+      - name: Trivy (configuración de OpenTofu)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: config
+          scan-ref: infra
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          version: v0.76.1
