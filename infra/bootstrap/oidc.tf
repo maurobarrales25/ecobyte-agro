@@ -77,6 +77,15 @@ data "aws_iam_policy_document" "read" {
     ]
     resources = ["*"]
   }
+
+  # Correos de las alertas (SecureString creado a mano). envs/dev lo lee con un data source,
+  # así que lo necesitan tanto plan como deploy. Solo ese parámetro, no todo SSM. El descifrado
+  # no pide kms:Decrypt aparte: la clave gestionada alias/aws/ssm lo permite a la cuenta vía SSM.
+  statement {
+    sid       = "ReadAlertEmails"
+    actions   = ["ssm:GetParameter"]
+    resources = [format("${local.arn_prefix}:parameter/ecobyte/alert-emails", "ssm")]
+  }
 }
 
 data "aws_iam_policy_document" "github_plan" {
