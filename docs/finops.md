@@ -47,8 +47,10 @@ Supuestos a definir para la cuenta: cantidad de mensajes de la prueba (10.000), 
 ## Medidas de ahorro
 
 - Presupuesto con alertas creado desde el primer día.
-- Los recursos creados con OpenTofu llevan las etiquetas `project`, `team`, `env` y `owner` (obligatorias en la consigna), definidas en `default_tags` del provider. Hoy el único recurso es el presupuesto. El bucket del estado y el parámetro de SSM, que se crearon a mano, se etiquetaron con los mismos valores.
+- Los recursos creados con OpenTofu llevan las etiquetas `project`, `team`, `env` y `owner`, definidas en `default_tags` del provider. Hoy el único recurso es el presupuesto. El bucket del estado y el parámetro de SSM, que se crearon a mano, se etiquetaron con los mismos valores.
     Con un solo entorno y un solo equipo no separan el gasto, pero permiten acotar permisos por
     etiqueta y encontrar recursos que hayan quedado vivos.
+- TTL en la tabla de lecturas `ecobyte-dev-lecturas`: la tabla borra sola los ítems que ya vencieron, usando el atributo `expires_at`. La Lambda va a escribir ese atributo con la fecha de la lectura más 30 días, así que cada ítem dura 30 días desde que se guarda. Esto se hace porque DynamoDB cobra el almacenamiento por GB al mes, y así los datos de prueba no se acumulan. El borrado por TTL no tiene costo, pero no es inmediato: AWS lo hace en segundo plano y puede tardar hasta unas 48 horas, o más, después del vencimiento. Para esto no importa, porque solo buscamos limpiar datos de prueba.
+- Sin recuperación a un punto en el tiempo (point-in-time recovery) ni clave KMS propia en la tabla: tienen costo por GB y son datos de prueba que vencen solos.
 
 ## Evidencia del destroy
