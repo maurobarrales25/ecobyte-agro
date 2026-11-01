@@ -210,6 +210,14 @@ data "aws_iam_policy_document" "github_deploy" {
     resources = ["*"]
   }
 
+  # El vínculo lleva las etiquetas de default_tags, y AWS pide permiso para etiquetarlo al
+  # crearlo. Su ARN tiene un ID aleatorio: se acota al tipo de recurso, no al nombre.
+  statement {
+    sid       = "TagEventSourceMappings"
+    actions   = ["lambda:TagResource", "lambda:UntagResource"]
+    resources = [format("${local.arn_prefix}:event-source-mapping:*", "lambda")]
+  }
+
   statement {
     sid     = "ManageLogGroups"
     actions = ["logs:*"]
