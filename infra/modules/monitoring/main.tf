@@ -3,8 +3,8 @@
 resource "aws_cloudwatch_metric_alarm" "dlq_has_messages" {
   alarm_name        = "${var.name_prefix}-dlq-con-mensajes"
   alarm_description = "Hay lecturas que fallaron y no se guardaron"
-  namespace   = "AWS/SQS"
-  metric_name = "ApproximateNumberOfMessagesVisible"
+  namespace         = "AWS/SQS"
+  metric_name       = "ApproximateNumberOfMessagesVisible"
   dimensions = {
     QueueName = var.dlq_queue_name
   }
@@ -19,5 +19,5 @@ resource "aws_cloudwatch_metric_alarm" "dlq_has_messages" {
   comparison_operator = "GreaterThanOrEqualToThreshold"
   # Una cola vacía y sin tráfico no publica datos. "notBreaching" los trata como "todo bien";
   treat_missing_data = "notBreaching"
-  alarm_actions = [var.alerts_topic_arn]
+  alarm_actions      = [var.alerts_topic_arn]
 }
