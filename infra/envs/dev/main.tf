@@ -29,3 +29,14 @@ module "consumer" {
   table_arn          = module.database.table_arn
   ttl_attribute_name = module.database.ttl_attribute_name
 }
+
+module "monitoring" {
+  source = "../../modules/monitoring"
+
+  name_prefix          = "ecobyte-${var.env}"
+  ingest_queue_name    = module.messaging.ingest_queue_name
+  dlq_queue_name       = module.messaging.dlq_name
+  lambda_function_name = module.consumer.function_name
+  alerts_topic_arn     = module.messaging.alerts_topic_arn
+}
+
