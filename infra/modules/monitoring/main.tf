@@ -21,3 +21,78 @@ resource "aws_cloudwatch_metric_alarm" "dlq_has_messages" {
   treat_missing_data = "notBreaching"
   alarm_actions      = [var.alerts_topic_arn]
 }
+
+# Cada widget del dashboard necesita la región; se lee del provider en vez de escribirla a mano.
+data "aws_region" "current" {}
+
+# Dashboard del pipeline. La grilla tiene 24 columnas: con width = 12 entran dos widgets por
+# fila (x = 0 y x = 12). La segunda fila empieza en y = 6, la altura de la primera.
+# Cada métrica es [namespace, nombre, nombre de la dimensión, valor de la dimensión].
+resource "aws_cloudwatch_dashboard" "pipeline" {
+  dashboard_name = "${var.name_prefix}-dashboard"
+
+  dashboard_body = jsonencode({
+    widgets = [
+      {
+        type   = "metric"
+        x      = 0
+        y      = 0
+        width  = 12
+        height = 6
+
+        properties = {
+          title   = "Cola de ingesta: mensajes esperando"
+          region  = data.aws_region.current.region
+          period  = 60
+          stat    = "Maximum"
+          metrics = [["AWS/SQS", "ApproximateNumberOfMessagesVisible", "QueueName", var.ingest_queue_name]]
+        }
+      },
+      {
+        type   = "metric"
+        x      = 12
+        y      = 0
+        width  = 12
+        height = 6
+
+        properties = {
+          title   = "DLQ: lecturas que fallaron"
+          region  = data.aws_region.current.region
+          period  = 60
+          stat    = "Maximum"
+          metrics = [["AWS/SQS", "ApproximateNumberOfMessagesVisible", "QueueName", var.dlq_queue_name]]
+        }
+      },
+      {
+        type   = "metric"
+        x      = 0
+        y      = 6
+        width  = 12
+        height = 6
+
+        properties = {
+          title   = "Lambda: invocaciones"
+          region  = data.aws_region.current.region
+          period  = 60
+          stat    = "Sum"
+          metrics = [["AWS/Lambda", "Invocations", "FunctionName", var.lambda_function_name]]
+        }
+      },
+      {
+        type   = "metric"
+        x      = 12
+        y      = 6
+        width  = 12
+        height = 6
+
+        properties = {
+          title   = "Lambda: errores"
+          region  = data.aws_region.current.region
+          period  = 60
+          stat    = "Sum"
+          metrics = [["AWS/Lambda", "Errors", "FunctionName", var.lambda_function_name]]
+        }
+      }
+    ]
+  })
+}
