@@ -22,6 +22,9 @@ resource "aws_cloudwatch_metric_alarm" "dlq_has_messages" {
   alarm_actions      = [var.alerts_topic_arn]
 }
 
+# Cada widget del dashboard necesita la región; se lee del provider en vez de escribirla a mano.
+data "aws_region" "current" {}
+
 # Dashboard del pipeline. La grilla tiene 24 columnas: con width = 12 entran dos widgets por
 # fila (x = 0 y x = 12). La segunda fila empieza en y = 6, la altura de la primera.
 # Cada métrica es [namespace, nombre, nombre de la dimensión, valor de la dimensión].
