@@ -43,11 +43,9 @@ jobs:
         with:
           tflint_version: v0.65.0
 
-      # Solo falla por errores. Los módulos y infra/envs/dev son por ahora archivos vacíos y
-      # tflint avisa (warning) que les falta required_version; se vuelve a exigir cualquier
-      # severidad cuando tengan contenido.
+      # Falla con cualquier severidad: los módulos ya tienen contenido y tflint da limpio.
       - name: tflint
-        run: tflint --recursive --minimum-failure-severity=error
+        run: tflint --recursive
 
       - name: Trivy (configuración de OpenTofu)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
@@ -57,3 +55,74 @@ jobs:
           severity: HIGH,CRITICAL
           exit-code: "1"
           version: v0.76.1
+
+  # Publica en el PR lo que haría un apply. Usa el rol de solo lectura (ecobyte-github-plan),
+  # que solo acepta tokens de pull_request: un PR con un workflow modificado no puede escribir.
+  # Los valores sensibles (como los correos de las alertas) salen como "(sensitive value)".
+  plan:
+    needs: checks
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+    defaults:
+      run:
+        working-directory: infra/envs/dev
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
+        with:
+          tofu_version: 1.12.6
+          tofu_wrapper: false
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_PLAN_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Init
+        run: tofu init -input=false
+
+      # tee guarda la salida para el comentario; pipefail hace que el paso falle si el plan falla.
+      - name: Plan
+        id: plan
+        run: |
+          set -o pipefail
+          tofu plan -var-file=dev.tfvars -input=false -no-color -lock-timeout=120s \
+            | tee "$RUNNER_TEMP/plan.txt"
+
+      # Se comenta aunque el plan falle, para que el error se vea en el PR. Un solo comentario
+      # que se actualiza en cada push (--edit-last), en vez de uno nuevo por corrida.
+      # GitHub limita los comentarios a 65536 caracteres: se corta el plan en 60000.
+      - name: Comentar el plan en el PR
+        if: always() && (steps.plan.outcome == 'success' || steps.plan.outcome == 'failure')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PLAN_OUTCOME: ${{ steps.plan.outcome }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          resumen=$(grep -E '^(Plan:|No changes)' "$RUNNER_TEMP/plan.txt" | tail -1 || true)
+          [ -n "$resumen" ] || resumen="el plan terminó con resultado: $PLAN_OUTCOME"
+          {
+            echo "### Plan de OpenTofu (infra/envs/dev)"
+            echo
+            echo "**$resumen**"
+            echo
+            echo "<details><summary>Detalle del plan</summary>"
+            echo
+            echo '```'
+            head -c 60000 "$RUNNER_TEMP/plan.txt"
+            echo
+            echo '```'
+            echo
+            echo "</details>"
+            echo
+            echo "[Ver la corrida completa]($RUN_URL)"
+          } > "$RUNNER_TEMP/comentario.md"
+          gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" \
+            --body-file "$RUNNER_TEMP/comentario.md" --edit-last --create-if-none
